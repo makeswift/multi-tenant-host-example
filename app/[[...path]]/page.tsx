@@ -1,9 +1,11 @@
 import { notFound } from 'next/navigation'
 
-import { Page as MakeswiftPage } from '@makeswift/runtime/next'
+import { Makeswift, Page as MakeswiftPage } from '@makeswift/runtime/next'
 import { getSiteVersion } from '@makeswift/runtime/next/server'
 
 import { client } from '@/lib/makeswift/client'
+import { getApiKey } from '@/lib/makeswift/prefix-to-api.key'
+import { runtime } from '@/lib/makeswift/runtime'
 
 export async function generateStaticParams() {
   const pages = await client.getPages().toArray()
@@ -14,8 +16,18 @@ export async function generateStaticParams() {
 }
 
 export default async function Page({ params }: { params: Promise<{ path?: string[] }> }) {
-  const path = '/' + ((await params)?.path ?? []).join('/')
-  const snapshot = await client.getPageSnapshot(path, {
+  const pathSegments = (await params)?.path ?? []
+
+  if (pathSegments.length === 0) return notFound()
+
+  const firstPathSegment = pathSegments.at(0)!
+
+  const makeswiftClient = new Makeswift(getApiKey(firstPathSegment), {
+    runtime,
+  })
+
+  const path = '/' + pathSegments.join('/')
+  const snapshot = await makeswiftClient.getPageSnapshot(path, {
     siteVersion: getSiteVersion(),
   })
 
