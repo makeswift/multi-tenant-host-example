@@ -5,8 +5,8 @@ import { NextRequest } from 'next/server'
 import { MakeswiftApiHandler } from '@makeswift/runtime/next/server'
 
 import '@/lib/makeswift/components'
-import { getApiKey } from '@/lib/makeswift/prefix-to-api.key'
 import { runtime } from '@/lib/makeswift/runtime'
+import { getApiKey } from '@/lib/makeswift/show-id-to-api-key'
 
 async function getApiKeyFromRequest(): Promise<string> {
   const headersList = await headers()

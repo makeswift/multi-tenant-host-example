@@ -1,31 +1,29 @@
+import { headers } from 'next/headers'
 import { notFound } from 'next/navigation'
 
 import { Makeswift, Page as MakeswiftPage } from '@makeswift/runtime/next'
 import { getSiteVersion } from '@makeswift/runtime/next/server'
 
-import { getApiKey } from '@/lib/makeswift/prefix-to-api.key'
 import { runtime } from '@/lib/makeswift/runtime'
-
-// export async function generateStaticParams() {
-//   const pages = await client.getPages().toArray()
-
-//   return pages.map(page => ({
-//     path: page.path.split('/').filter(segment => segment !== ''),
-//   }))
-// }
+import { getApiKey } from '@/lib/makeswift/show-id-to-api-key'
 
 export default async function Page({ params }: { params: Promise<{ path?: string[] }> }) {
   const pathSegments = (await params)?.path ?? []
+  const path = '/' + pathSegments.join('/')
 
-  if (pathSegments.length === 0) return notFound()
+  // Get subdomain from host header
+  const headersList = await headers()
+  const host = headersList.get('host')
 
-  const firstPathSegment = pathSegments.at(0)!
+  if (!host) {
+    throw new Error('Host header is required')
+  }
 
-  const makeswiftClient = new Makeswift(getApiKey(firstPathSegment), {
+  const subdomain = host.split('.')[0]
+  const makeswiftClient = new Makeswift(getApiKey(subdomain), {
     runtime,
   })
 
-  const path = '/' + pathSegments.join('/')
   const snapshot = await makeswiftClient.getPageSnapshot(path, {
     siteVersion: getSiteVersion(),
   })
