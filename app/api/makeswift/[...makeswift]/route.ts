@@ -8,7 +8,7 @@ import '@/lib/makeswift/components'
 import { runtime } from '@/lib/makeswift/runtime'
 import { getApiKey } from '@/lib/makeswift/show-id-to-api-key'
 
-async function getApiKeyFromRequest(): Promise<string> {
+async function getShowIdFromSubdomain(): Promise<string> {
   const headersList = await headers()
   const host = headersList.get('host')
 
@@ -18,11 +18,12 @@ async function getApiKeyFromRequest(): Promise<string> {
 
   const subdomain = host.split('.')[0]
 
-  return getApiKey(subdomain)
+  return subdomain
 }
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const apiKey = await getApiKeyFromRequest()
+  const showId = await getShowIdFromSubdomain()
+  const apiKey = getApiKey(showId)
 
   return await MakeswiftApiHandler(apiKey, { runtime })(req, res)
 }
