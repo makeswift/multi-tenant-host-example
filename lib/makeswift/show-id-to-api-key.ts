@@ -21,3 +21,7 @@ export function getAllApiKeys(): string[] {
 export function isValidApiKey(apiKey: string): boolean {
   return getAllApiKeys().includes(apiKey)
 }
+
+export function isValidSubdomain(subdomain: string): boolean {
+  return Object.keys(API_KEYS).includes(subdomain)
+}

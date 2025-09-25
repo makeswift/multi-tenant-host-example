@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+import { isValidSubdomain } from './lib/makeswift/show-id-to-api-key'
+
 // import { unstable_isDraftModeRequest } from '@makeswift/runtime/next/middleware'
 
 export function middleware(request: NextRequest) {
@@ -7,6 +9,10 @@ export function middleware(request: NextRequest) {
   const host = request.headers.get('host') || ''
   const url = request.nextUrl.clone()
   const subdomain = host.split('.')[0]
+
+  if (!isValidSubdomain(subdomain)) {
+    return NextResponse.next()
+  }
 
   if (!url.pathname.startsWith('/api/makeswift/')) {
     url.pathname = `/${subdomain}${url.pathname}`
