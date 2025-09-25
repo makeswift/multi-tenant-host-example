@@ -12,8 +12,6 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const host = headersList.get('host') || ''
   const subdomain = host.split('.')[0]
 
-  console.log(`API Route handler invoked. URL: ${req.url}, Host: ${host}, Subdomain: ${subdomain}`)
-
   const apiKey = getApiKey(subdomain)
 
   return await MakeswiftApiHandler(apiKey, { runtime })(req, res)
