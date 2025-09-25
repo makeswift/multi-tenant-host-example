@@ -9,6 +9,7 @@ export function middleware(request: NextRequest) {
   // get the tenant id from the subdomain
   const tenantId = host.split('.')[0]
 
+  // It could be site is being accessed at mysite.com/<tenant-id>/<pathname>
   if (!isValidTenantId(tenantId)) {
     return NextResponse.next()
   }
