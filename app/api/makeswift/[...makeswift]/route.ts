@@ -8,22 +8,16 @@ import '@/lib/makeswift/components'
 import { runtime } from '@/lib/makeswift/runtime'
 import { getApiKey } from '@/lib/makeswift/show-id-to-api-key'
 
-async function getShowIdFromSubdomain(): Promise<string> {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   const headersList = await headers()
-  const host = headersList.get('host')
+  const tenantId = headersList.get('x-tenant-id')
 
-  if (!host) {
-    throw new Error('Host is required')
+  console.log('tenantId in api route', tenantId, req.url)
+  if (!tenantId) {
+    throw new Error('Tenant ID is required in x-tenant-id header')
   }
 
-  const subdomain = host.split('.')[0]
-
-  return subdomain
-}
-
-async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const showId = await getShowIdFromSubdomain()
-  const apiKey = getApiKey(showId)
+  const apiKey = getApiKey(tenantId)
 
   return await MakeswiftApiHandler(apiKey, { runtime })(req, res)
 }

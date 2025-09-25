@@ -1,4 +1,3 @@
-import { headers } from 'next/headers'
 import { notFound } from 'next/navigation'
 
 import { Makeswift, Page as MakeswiftPage } from '@makeswift/runtime/next'
@@ -9,22 +8,19 @@ import { getApiKey } from '@/lib/makeswift/show-id-to-api-key'
 
 export default async function Page({ params }: { params: Promise<{ path?: string[] }> }) {
   const pathSegments = (await params)?.path ?? []
-  const path = '/' + pathSegments.join('/')
 
-  // Get subdomain from host header
-  const headersList = await headers()
-  const host = headersList.get('host')
+  if (pathSegments.length === 0) return notFound()
 
-  if (!host) {
-    throw new Error('Host header is required')
-  }
+  // First segment is the tenant ID (a, b, etc.)
+  const tenantId = pathSegments[0]
+  const remainingPath = pathSegments.slice(1)
+  const makeswiftPath = '/' + remainingPath.join('/')
 
-  const subdomain = host.split('.')[0]
-  const makeswiftClient = new Makeswift(getApiKey(subdomain), {
+  const makeswiftClient = new Makeswift(getApiKey(tenantId), {
     runtime,
   })
 
-  const snapshot = await makeswiftClient.getPageSnapshot(path, {
+  const snapshot = await makeswiftClient.getPageSnapshot(makeswiftPath, {
     siteVersion: getSiteVersion(),
   })
 
