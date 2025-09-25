@@ -10,15 +10,12 @@ import { getApiKey } from '@/lib/makeswift/show-id-to-api-key'
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
   const headersList = await headers()
-  const tenantId = headersList.get('x-tenant-id')
+  const host = headersList.get('host') || ''
+  const subdomain = host.split('.')[0]
 
-  console.log(`API Route handler invoked. URL: ${req.url}, Tenant ID: ${tenantId}`)
+  console.log(`API Route handler invoked. URL: ${req.url}, Host: ${host}, Subdomain: ${subdomain}`)
 
-  if (!tenantId) {
-    throw new Error('Tenant ID is required in x-tenant-id header')
-  }
-
-  const apiKey = getApiKey(tenantId)
+  const apiKey = getApiKey(subdomain)
 
   return await MakeswiftApiHandler(apiKey, { runtime })(req, res)
 }
