@@ -1,4 +1,4 @@
-# Makeswift Multi-Tenant Next.js Starter
+# Multi-Tenant Host Example
 
 This multi-tenant setup uses subdomain-based routing where each tenant has its own Makeswift site:
 - Site A uses API key for subdomain 'a' 
