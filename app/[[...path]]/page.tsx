@@ -3,17 +3,16 @@ import { notFound } from 'next/navigation'
 import { Makeswift, Page as MakeswiftPage } from '@makeswift/runtime/next'
 import { getSiteVersion } from '@makeswift/runtime/next/server'
 
-import { client } from '@/lib/makeswift/client'
 import { getApiKey } from '@/lib/makeswift/prefix-to-api.key'
 import { runtime } from '@/lib/makeswift/runtime'
 
-export async function generateStaticParams() {
-  const pages = await client.getPages().toArray()
+// export async function generateStaticParams() {
+//   const pages = await client.getPages().toArray()
 
-  return pages.map(page => ({
-    path: page.path.split('/').filter(segment => segment !== ''),
-  }))
-}
+//   return pages.map(page => ({
+//     path: page.path.split('/').filter(segment => segment !== ''),
+//   }))
+// }
 
 export default async function Page({ params }: { params: Promise<{ path?: string[] }> }) {
   const pathSegments = (await params)?.path ?? []
