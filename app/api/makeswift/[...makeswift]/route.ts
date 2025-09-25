@@ -12,7 +12,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const headersList = await headers()
   const tenantId = headersList.get('x-tenant-id')
 
-  console.log('tenantId in api route', tenantId, req.url)
+  console.log(`API Route handler invoked. URL: ${req.url}, Tenant ID: ${tenantId}`)
+
   if (!tenantId) {
     throw new Error('Tenant ID is required in x-tenant-id header')
   }
