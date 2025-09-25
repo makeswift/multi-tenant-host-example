@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 export function middleware(request: NextRequest) {
   console.log('middleware running!!!')
   const host = request.headers.get('host') || ''
+  const isUsingDraftMode = request.nextUrl.searchParams.get('x-makeswift-draft-mode') != null
   const url = request.nextUrl.clone()
 
   // Extract subdomain (e.g., 'a' from 'a.mysite.com')
@@ -14,7 +15,7 @@ export function middleware(request: NextRequest) {
   }
 
   // Handle API routes: a.mysite.com/api/makeswift/endpoint -> mysite.com/api/makeswift/endpoint?tenant=a
-  if (url.pathname.startsWith('/api/makeswift/')) {
+  if (url.pathname.startsWith('/api/makeswift/') || isUsingDraftMode) {
     console.log('api route!!!')
     console.log('subdomain', subdomain)
 
