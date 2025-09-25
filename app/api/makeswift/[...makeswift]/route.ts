@@ -1,6 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { headers } from 'next/headers'
-import { NextRequest } from 'next/server'
 
 import { MakeswiftApiHandler } from '@makeswift/runtime/next/server'
 
