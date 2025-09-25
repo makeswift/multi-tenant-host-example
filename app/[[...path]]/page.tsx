@@ -4,7 +4,7 @@ import { Makeswift, Page as MakeswiftPage } from '@makeswift/runtime/next'
 import { getSiteVersion } from '@makeswift/runtime/next/server'
 
 import { runtime } from '@/lib/makeswift/runtime'
-import { getApiKey } from '@/lib/makeswift/show-id-to-api-key'
+import { getApiKey } from '@/lib/makeswift/tenants'
 
 export default async function Page({ params }: { params: Promise<{ path?: string[] }> }) {
   const pathSegments = (await params)?.path ?? []
