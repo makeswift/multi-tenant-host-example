@@ -11,12 +11,12 @@ export default async function Page({ params }: { params: Promise<{ path?: string
 
   if (pathSegments.length === 0) return notFound()
 
-  // First segment is the tenant ID (a, b, etc.)
-  const tenantId = pathSegments[0]
+  // First segment is the subdomain (siteA, siteB, etc.)
+  const subdomain = pathSegments.at(0) ?? 'default'
   const remainingPath = pathSegments.slice(1)
   const makeswiftPath = '/' + remainingPath.join('/')
 
-  const makeswiftClient = new Makeswift(getApiKey(tenantId), {
+  const makeswiftClient = new Makeswift(getApiKey(subdomain), {
     runtime,
   })
 
