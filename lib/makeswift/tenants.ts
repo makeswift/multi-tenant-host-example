@@ -1,18 +1,31 @@
-const TENANT_ID_TO_API_KEY = {
-  a: 'd8c531d6-d021-478f-8516-1daaf07abc22',
-  b: '873f8954-b970-402e-ae58-097f0d505c7c',
-} as const
+import { env } from 'env'
 
-export function getApiKey(tenantId: string): string {
-  if (!isValidTenantId(tenantId)) {
+const SUBDOMAIN_TO_API_KEY = {
+  default: env.DEFAULT_MAKESWIFT_SITE_API_KEY,
+  [env.SITE_A_SUBDOMAIN]: env.SITE_A_MAKESWIFT_SITE_API_KEY,
+  [env.SITE_B_SUBDOMAIN]: env.SITE_B_MAKESWIFT_SITE_API_KEY,
+}
+
+export function getApiKey(subdomain: string) {
+  const apiKey = SUBDOMAIN_TO_API_KEY[subdomain]
+
+  if (!apiKey) {
     throw new Error(
-      `Invalid tenantId: ${tenantId}. Only ${Object.keys(TENANT_ID_TO_API_KEY).join(', ')} are supported.`
+      `Invalid subdomain: ${subdomain}. Only ${Object.keys(SUBDOMAIN_TO_API_KEY).join(', ')} are supported.`
     )
   }
 
-  return TENANT_ID_TO_API_KEY[tenantId as keyof typeof TENANT_ID_TO_API_KEY]
+  return apiKey
 }
 
-export function isValidTenantId(tenantId: string): boolean {
-  return tenantId in TENANT_ID_TO_API_KEY
+export function isValidTenantId(subdomain: string) {
+  return subdomain in SUBDOMAIN_TO_API_KEY
+}
+
+export function getSubdomainFromHost(host: string): string {
+  if (!host.includes('.')) {
+    return 'default'
+  }
+
+  return host.split('.').at(0) ?? 'default'
 }

@@ -5,12 +5,14 @@ import { MakeswiftApiHandler } from '@makeswift/runtime/next/server'
 
 import '@/lib/makeswift/components'
 import { runtime } from '@/lib/makeswift/runtime'
-import { getApiKey } from '@/lib/makeswift/tenants'
+import { getApiKey, getSubdomainFromHost } from '@/lib/makeswift/tenants'
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
   const headersList = await headers()
-  const host = headersList.get('host') || ''
-  const subdomain = host.split('.')[0]
+  const host = headersList.get('host') ?? ''
+
+  // Get the subdomain from the host (e.g., "siteA" from "siteA.localhost:3000")
+  const subdomain = getSubdomainFromHost(host)
 
   const apiKey = getApiKey(subdomain)
 

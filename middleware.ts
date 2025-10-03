@@ -1,21 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-import { isValidTenantId } from './lib/makeswift/tenants'
+import { getSubdomainFromHost, isValidTenantId } from './lib/makeswift/tenants'
 
 export function middleware(request: NextRequest) {
-  const host = request.headers.get('host') || ''
+  const host = request.headers.get('host') ?? ''
   const url = request.nextUrl.clone()
 
-  // get the tenant id from the subdomain
-  const tenantId = host.split('.')[0]
+  // Get the subdomain from the host (e.g., "siteA" from "siteA.localhost:3000")
+  const subdomain = getSubdomainFromHost(host)
 
-  // It could be site is being accessed at mysite.com/<tenant-id>/<pathname>
-  if (!isValidTenantId(tenantId)) {
+  if (!isValidTenantId(subdomain)) {
     return NextResponse.next()
   }
 
   if (!url.pathname.startsWith('/api/makeswift/')) {
-    url.pathname = `/${tenantId}${url.pathname}`
+    url.pathname = `/${subdomain}${url.pathname}`
     return NextResponse.rewrite(url)
   }
 }
