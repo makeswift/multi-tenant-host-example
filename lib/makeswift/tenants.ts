@@ -25,5 +25,10 @@ export function isValidTenantId(subdomain: string) {
 }
 
 export function getSubdomainFromHost(host: string): string | null {
-  return host.split('.').at(0) ?? null
+  const parts = host.split('.')
+  // A valid subdomain requires at least 2 parts: subdomain.domain
+  if (parts.length < 2) {
+    return null
+  }
+  return parts[0]
 }
