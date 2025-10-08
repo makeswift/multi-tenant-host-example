@@ -4,12 +4,37 @@ This project demonstrates how to implement multi-tenancy in a Next.js applicatio
 
 ## 🏗️ Architecture Overview
 
-The multi-tenancy system works by:
+The multi-tenancy system supports **two routing approaches**:
 
-1. **Detecting the subdomain** from the incoming request (or using 'default' when no subdomain is present)
-2. **Mapping the subdomain** to the appropriate Makeswift site API key
+### Subdomain-Based Routing
+
+- `siteA.localhost:3000`
+- **Required for the Makeswift builder**
+
+### Path-Based Routing
+
+- `localhost:3000/siteA`
+- **Works for page navigation and public viewing**
+
+Both approaches are equivalent for rendering pages, but **the Makeswift builder requires subdomain-based URLs** to function correctly.
+
+### How It Works
+
+1. **Detecting the tenant** from either the subdomain or the first path segment
+2. **Mapping the tenant identifier** to the appropriate Makeswift site API key
 3. **Rewriting URLs** to include the tenant identifier in the routing
 4. **Serving tenant-specific content** from the correct Makeswift site
+
+### When to Use Each Approach
+
+**Use Subdomain-Based Routing (`siteA.localhost:3000`) when:**
+
+- Working in the Makeswift builder (required)
+- Setting up the Makeswift host URL in your site settings
+
+**Use Path-Based Routing (`localhost:3000/siteA`) when:**
+
+- Routing to published pages
 
 ## Key Benefits
 
@@ -63,13 +88,7 @@ SITE_B_MAKESWIFT_SITE_API_KEY=your-api-key-for-site-b
 
 This is the **core of the multi-tenancy logic**, mapping subdomains to their Makeswift API keys.
 
-**What it does:**
-
-- **`SUBDOMAIN_TO_API_KEY`**: Creates a mapping object where keys are subdomain identifiers (including 'default') and values are Makeswift API keys
-- **`getApiKey(subdomain)`**: Retrieves the API key for a given subdomain, throwing an error if the subdomain is invalid
-- **`isValidTenantId(subdomain)`**: Validates whether a subdomain exists in the tenant configuration
-
-**The 'default' tenant** is used when no subdomain is detected (e.g., accessing via `localhost:3000` directly).
+**The 'default' tenant** is used when no subdomain is detected, either from the domain or the path.
 
 **To add a new tenant:** Simply add new environment variables in `env.ts` and extend the `SUBDOMAIN_TO_API_KEY` object.
 
@@ -77,22 +96,27 @@ This is the **core of the multi-tenancy logic**, mapping subdomains to their Mak
 
 ### 3. `middleware.ts` - Request Interception & URL Rewriting
 
-The middleware intercepts all incoming requests and rewrites URLs to include the tenant identifier.
+The middleware intercepts all incoming requests and rewrites URLs to include the tenant identifier. It supports both **subdomain-based** and **path-based** routing.
 
 **What it does:**
 
-1. **Extracts the subdomain** from the `host` header (e.g., `siteA.localhost:3000` → `siteA`, or `localhost:3000` → `default`)
-2. **Validates the tenant** using `isValidTenantId()`
-3. **Skips static files** like favicon.ico and API routes to avoid interfering with Makeswift API handlers
-4. **Rewrites the URL** by prepending the subdomain to the pathname
-   - Example: `/about` becomes `/siteA/about` internally
-   - Or: `/about` becomes `/default/about` when no subdomain is present
+1. **Extracts the subdomain** from the `host` header (e.g., `siteA.localhost:3000` → `siteA`)
+2. **If no subdomain is present:**
+   - Checks if the first path segment is a valid tenant ID
+   - If valid (e.g., `/siteA/products`), allows the request to continue
+   - If not valid (e.g., `/products`), rewrites to `/default/products`
+3. **If a subdomain is present:**
+   - Validates the tenant using `isValidTenantId()`
+   - Skips rewriting for Makeswift API routes (`/api/makeswift/*`)
+   - Rewrites the URL by prepending the subdomain to the pathname
+4. **Skips static files** like favicon.ico and Next.js internal routes
 
-**Example:**
+**Examples:**
 
-- User visits: `siteA.localhost:3000/products`
-- Middleware rewrites to: `/siteA/products`
-- This routes to the catch-all page handler with tenant context
+- **Subdomain:** `siteA.localhost:3000/products` → rewrites to `/siteA/products`
+- **Path:** `localhost:3000/siteA/products` → no rewrite needed (already includes tenant)
+- **Default:** `localhost:3000/products` → rewrites to `/default/products`
+- **Makeswift API:** `siteA.localhost:3000/api/makeswift/...` → no rewrite (API handles subdomain extraction)
 
 ---
 
@@ -120,7 +144,7 @@ This catch-all route handler renders Makeswift pages for the appropriate tenant.
 
 ### 5. `app/api/makeswift/[...makeswift]/route.ts` - Makeswift API Handler
 
-This API route handler manages Makeswift's draft mode and preview functionality.
+This API route handler manages Makeswift's draft mode and preview functionality, allowing you to use the builder. These requests require the subdomain which is defined in the host setting.
 
 **What it does:**
 
@@ -129,13 +153,13 @@ This API route handler manages Makeswift's draft mode and preview functionality.
 3. **Delegates to Makeswift's API handler** with the correct API key
 4. **Supports all HTTP methods** (GET, POST, OPTIONS) for Makeswift operations
 
-This ensures that draft mode, previews, and other Makeswift features work correctly for each tenant.
-
 ---
 
 ## 🔄 Request Flow
 
-Here's how a request flows through the multi-tenant system:
+Here's how requests flow through the multi-tenant system:
+
+### Subdomain-Based Flow
 
 ```
 1. User visits: siteA.localhost:3000/products
@@ -150,7 +174,7 @@ Here's how a request flows through the multi-tenant system:
 
 2. Page Component receives: params.path = ['siteA', 'products']
    │
-   ├─> Extracts subdomain = 'siteA'
+   ├─> Extracts tenantId = 'siteA'
    │
    ├─> Calls getApiKey('siteA') → Gets Site A's API key
    │
@@ -160,6 +184,36 @@ Here's how a request flows through the multi-tenant system:
    │
    └─> Renders the page with tenant-specific content
 ```
+
+### Path-Based Flow
+
+```
+1. User visits: localhost:3000/siteA/products
+   │
+   ├─> Middleware finds no subdomain
+   │
+   ├─> Checks first path segment: "siteA"
+   │
+   ├─> Validates "siteA" is a valid tenant
+   │
+   ├─> No rewrite needed (path already includes tenant)
+   │
+   └─> Routes to [[...path]]/page.tsx
+
+2. Page Component receives: params.path = ['siteA', 'products']
+   │
+   ├─> Extracts tenantId = 'siteA'
+   │
+   ├─> Calls getApiKey('siteA') → Gets Site A's API key
+   │
+   ├─> Creates Makeswift client with Site A's API key
+   │
+   ├─> Fetches page snapshot for '/products' from Site A
+   │
+   └─> Renders the page with tenant-specific content
+```
+
+**Note:** Both routing approaches result in the same internal URL structure (`/siteA/products`), ensuring consistent page rendering regardless of how the user accesses the site.
 
 ---
 
@@ -223,15 +277,21 @@ To add a new tenant site:
    pnpm dev
    ```
 
-4. **Test different tenants** by visiting:
+4. **Test different tenants** using either routing approach:
+
+   **Subdomain-based (required for Makeswift builder):**
    - Default tenant: `http://localhost:3000`
-   - Subdomain tenants: `http://siteA.localhost:3000`, `http://siteB.localhost:3000`
+   - Site A: `http://siteA.localhost:3000`
+   - Site B: `http://siteB.localhost:3000`
+
+   **Path-based (works for page navigation):**
+   - Default tenant: `http://localhost:3000`
+   - Site A: `http://localhost:3000/siteA`
+   - Site B: `http://localhost:3000/siteB`
 
 ---
 
-## 🌐 Configuring Local Subdomains
-
-### Modify your `/etc/hosts` Configuration
+## Modify your `/etc/hosts` Configuration (Optional)
 
 If you want to use custom local domains like `siteA.local`, you'll need to configure `/etc/hosts`:
 
