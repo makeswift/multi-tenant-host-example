@@ -1,54 +1,37 @@
-'use client'
+import type { ReactNode } from 'react'
 
-import { Ref, forwardRef } from 'react'
+import { Tabs } from 'storefront-kit'
 
-import * as RadixTabs from '@radix-ui/react-tabs'
-import clsx from 'clsx'
+import { MSEmptyState } from '../empty-state/empty-state'
 
-type Tab = {
-  title?: string
-  code?: string
-  children?: React.ReactNode
+interface MSTab {
+  value?: string
+  label: string
+  content: ReactNode
 }
 
-type Props = {
+interface MSTabsProps {
   className?: string
-  tabs: Tab[]
-  ariaLabel?: string
+  defaultValue?: string
+  tabs?: MSTab[]
 }
 
-export const Tabs = forwardRef(function Tabs(
-  { className, tabs, ariaLabel = 'Tabs' }: Props,
-  ref: Ref<HTMLDivElement>
-) {
-  return (
-    <RadixTabs.Root ref={ref} className={clsx('flex flex-col', className)} defaultValue="0">
-      {tabs.length > 0 ? (
-        <>
-          <RadixTabs.List className="flex shrink-0 overflow-hidden" aria-label={ariaLabel}>
-            {tabs?.map((tab, index) => (
-              <RadixTabs.Trigger
-                key={index}
-                className="border-gray-light/30 text-gray-light data-[state=active]:text-gray-dark relative flex grow select-none items-center justify-center border-b-2 px-3 pb-2 pt-1 text-lg font-bold outline-none transition-colors duration-300 ease-in-out data-[state=active]:border-[#f39a67]"
-                value={index.toString()}
-              >
-                {tab.title}
-              </RadixTabs.Trigger>
-            ))}
-          </RadixTabs.List>
-          {tabs.map((tab, index) => (
-            <RadixTabs.Content key={index} className="outline-none " value={index.toString()}>
-              {tab.children}
-            </RadixTabs.Content>
-          ))}
-        </>
-      ) : (
-        <div className="p-6 text-center text-lg font-light">
-          There are no tabs. Try adding some.
-        </div>
-      )}
-    </RadixTabs.Root>
-  )
-})
+export function MSTabs({ className, defaultValue, tabs = [] }: MSTabsProps) {
+  if (tabs.length === 0) {
+    return <MSEmptyState className={className}>No tabs to display</MSEmptyState>
+  }
 
-export default Tabs
+  const resolvedTabs = tabs.map((tab, index) => ({
+    value: tab.value ?? `tab-${index + 1}`,
+    label: tab.label,
+    content: tab.content,
+  }))
+
+  return (
+    <Tabs
+      className={className}
+      defaultValue={defaultValue ?? resolvedTabs[0].value}
+      tabs={resolvedTabs}
+    />
+  )
+}

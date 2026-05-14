@@ -1,3 +1,14 @@
+@import 'storefront-kit/styles';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+[data-slot='accordion-title'] {
+  font-size: 20px;
+  line-height: 1.4;
+}
+
+[data-slot='accordion-body'] {
+  font-size: 16px;
+}
