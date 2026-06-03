@@ -4,15 +4,15 @@ import { Makeswift, Page as MakeswiftPage } from '@makeswift/runtime/next'
 import { getSiteVersion } from '@makeswift/runtime/next/server'
 
 import { runtime } from '@/lib/makeswift/runtime'
-import { getApiKey } from '@/lib/makeswift/tenants'
+import { DEFAULT_TENANT_ID, getApiKey } from '@/lib/makeswift/tenants'
 
 export default async function Page({ params }: { params: Promise<{ path?: string[] }> }) {
   const pathSegments = (await params)?.path ?? []
 
   if (pathSegments.length === 0) return notFound()
 
-  // First segment is the subdomain (siteA, siteB, etc.)
-  const subdomainFromPath = pathSegments.at(0) ?? 'default'
+  // First segment is the tenant id (siteA, siteB, etc.), inserted by middleware.
+  const subdomainFromPath = pathSegments.at(0) ?? DEFAULT_TENANT_ID
   const remainingPath = pathSegments.slice(1)
   const makeswiftPath = '/' + remainingPath.join('/')
 

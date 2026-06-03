@@ -6,30 +6,16 @@ export function middleware(request: NextRequest) {
   const host = request.headers.get('host') ?? ''
   const url = request.nextUrl.clone()
 
-  // Get the subdomain from the host (e.g., "siteA" from "siteA.localhost:3000")
+  // Resolve the tenant from the subdomain (e.g. "siteA" from
+  // "siteA.localhost:3000"). The bare root domain and any unrecognized host
+  // (e.g. "www" or a platform preview URL) fall back to the default tenant.
   const subdomain = getSubdomainFromHost(host)
+  const tenant = subdomain != null && isValidTenantId(subdomain) ? subdomain : DEFAULT_TENANT_ID
 
-  // url.pathname always starts with a leading slash
-  const firstPathSegment = url.pathname.split('/').at(1) ?? null
-
-  // If no subdomain is present, check if the request path is already scoped for
-  // a tenant.
-  if (subdomain == null) {
-    if (firstPathSegment && isValidTenantId(firstPathSegment)) {
-      return NextResponse.next()
-    }
-    url.pathname = `/${DEFAULT_TENANT_ID}${url.pathname}`
-    return NextResponse.rewrite(url)
-  }
-
-  if (!isValidTenantId(subdomain)) {
-    return NextResponse.next()
-  }
-
-  if (!url.pathname.startsWith('/api/makeswift/')) {
-    url.pathname = `/${subdomain}${url.pathname}`
-    return NextResponse.rewrite(url)
-  }
+  // Rewrite so the tenant is always the first path segment; the catch-all route
+  // reads it from there. Makeswift API routes are excluded via `config.matcher`.
+  url.pathname = `/${tenant}${url.pathname}`
+  return NextResponse.rewrite(url)
 }
 
 export const config = {
