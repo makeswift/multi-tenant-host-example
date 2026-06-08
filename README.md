@@ -1,173 +1,159 @@
 # Multi-Tenant Makeswift Implementation
 
-This project demonstrates how to implement multi-tenancy in a Next.js application using Makeswift, where different domains (or subdomains) are mapped to different Makeswift sites via their respective API keys.
+This project demonstrates how to implement multi-tenancy in a Next.js application using Makeswift, where different subdomains are mapped to different Makeswift sites via their respective API keys.
 
-## 🏗️ Architecture Overview
+It uses **subdomain-based routing**: the subdomain identifies the tenant (e.g. `siteA.localhost:3000` serves Site A), and the bare root domain (`localhost:3000`) serves the default tenant. Subdomain URLs are also what the Makeswift builder requires to connect to a site.
 
-This example uses **subdomain-based routing**: the subdomain identifies the tenant (e.g. `siteA.localhost:3000` serves Site A), and the bare root domain (`localhost:3000`) serves the default tenant. Subdomain URLs are also what the Makeswift builder requires to connect to a site.
+## Prerequisites
 
-### How It Works
+This guide assumes you've set up a Makeswift site before. If you haven't, start with the [Makeswift quickstart](https://docs.makeswift.com/developer/docs/get-started/quickstart).
 
-1. **Detecting the tenant** from the subdomain, resolved against the configured `ROOT_DOMAIN`
-2. **Mapping the tenant identifier** to the appropriate Makeswift site API key
-3. **Rewriting URLs** to include the tenant identifier in the routing
-4. **Serving tenant-specific content** from the correct Makeswift site
+You'll need:
 
-## Key Benefits
+- **One Makeswift site per tenant** (this example uses three: a default plus Site A and Site B). Each site has its own content and its own **Site API key**, found in the Makeswift dashboard under the site's settings.
+- **Node.js** and **pnpm** (`pnpm@9` — see `packageManager` in [package.json](package.json)).
 
-This multi-tenant architecture provides several advantages:
+## Quickstart
 
-### Unified Codebase, Multiple Sites
+1. **Install dependencies:**
 
-- **Single deployment** serves unlimited tenant sites
-- **One set of components** registered once, available to all tenants
-- **Centralized updates** - deploy new features and components to all sites simultaneously
-- **Reduced maintenance** - manage one codebase instead of multiple separate projects
+   ```bash
+   pnpm install
+   ```
 
-### Content Isolation with Shared Infrastructure
+2. **Create your env file** by copying the example, then fill in each Site API key:
 
-- **Complete content separation** - each tenant's pages, images, and assets are stored in separate Makeswift sites
-- **Independent content management** - tenants can manage their own content without affecting others
-- **Shared component library** - all tenants use the same components but with their own unique content and branding
-- **API key-based isolation** - content isolation is enforced at the Makeswift API level
+   ```bash
+   cp .env.example .env.local
+   ```
 
-### Easy Scalability
+   ```bash
+   ROOT_DOMAIN=localhost                 # "localhost" in dev; your real domain (e.g. "example.com") in prod
+   DEFAULT_MAKESWIFT_SITE_API_KEY=...    # used for the bare root domain
+   SITE_A_SUBDOMAIN=siteA                # just the subdomain part
+   SITE_A_MAKESWIFT_SITE_API_KEY=...
+   SITE_B_SUBDOMAIN=siteB
+   SITE_B_MAKESWIFT_SITE_API_KEY=...
+   ```
 
-- **Add new tenants** by simply adding environment variables (no code changes required)
-- **Horizontal scaling** - the same infrastructure handles any number of tenants
-- **Potentially cost efficient** - single hosting environment for multiple sites
+3. **Connect each Makeswift site to its subdomain.** In each site's host settings in the Makeswift dashboard, set the host URL to that tenant's subdomain so the builder loads the right content:
 
-## 📁 Key Files
+   - Default site → `http://localhost:3000`
+   - Site A → `http://siteA.localhost:3000`
+   - Site B → `http://siteB.localhost:3000`
 
-### 1. `env.ts` - Environment Configuration
+4. **Run the development server:**
 
-This file defines and validates the environment variables for each tenant's subdomain and Makeswift API key.
+   ```bash
+   pnpm dev
+   ```
 
-**What it does:**
+5. **Visit each tenant** in your browser:
 
-- Uses `@t3-oss/env-nextjs` for type-safe environment variables
-- Validates that each site has both a subdomain and a Makeswift API key
-- Exposes the `env` object for use throughout the application
+   - Default tenant: `http://localhost:3000`
+   - Site A: `http://siteA.localhost:3000`
+   - Site B: `http://siteB.localhost:3000`
 
-**Required Environment Variables:**
+   > Most browsers (Chrome, Firefox, Edge) resolve `*.localhost` to `127.0.0.1` automatically. Safari does not — see [Resolving subdomains on Safari](#resolving-subdomains-on-safari-optional) below.
 
-```bash
-ROOT_DOMAIN=localhost         # Root domain the app is served from ("localhost" in dev, e.g. "example.com" in prod)
-DEFAULT_MAKESWIFT_SITE_API_KEY=your-default-api-key  # Used for the bare root domain (e.g., "localhost:3000")
-SITE_A_SUBDOMAIN=siteA        # Just the subdomain part (e.g., "siteA" from "siteA.localhost")
-SITE_A_MAKESWIFT_SITE_API_KEY=your-api-key-for-site-a
-SITE_B_SUBDOMAIN=siteB        # Just the subdomain part (e.g., "siteB" from "siteB.localhost")
-SITE_B_MAKESWIFT_SITE_API_KEY=your-api-key-for-site-b
-```
+## How It Works
 
----
+A request flows through the system in four steps:
 
-### 2. `lib/makeswift/tenants.ts` - Subdomain-to-API-Key Mapping
-
-This is the **core of the multi-tenancy logic**, mapping subdomains to their Makeswift API keys.
-
-**The 'default' tenant** is used when no subdomain is detected (the bare root domain), or when the host is otherwise unrecognized.
-
-**To add a new tenant:** Simply add new environment variables in `env.ts` and extend the `SUBDOMAIN_TO_API_KEY` object.
-
----
-
-### 3. `middleware.ts` - Request Interception & URL Rewriting
-
-The middleware intercepts incoming requests and rewrites URLs so the resolved tenant is always the first path segment.
-
-**What it does:**
-
-1. **Extracts the subdomain** from the `host` header relative to `ROOT_DOMAIN` (e.g., `siteA.localhost:3000` → `siteA`; the bare `ROOT_DOMAIN` has no subdomain)
-2. **Resolves the tenant:** a valid subdomain is used as-is; the bare root domain and any unrecognized host (e.g. `www`, a platform preview URL) fall back to the `default` tenant — so the page route never throws
-3. **Rewrites the URL** by prepending the resolved tenant to the pathname
-4. **Skips Makeswift API routes** and static files via `config.matcher` (the API handler resolves the tenant from the host itself)
-
-**Examples** (with `ROOT_DOMAIN=localhost`):
-
-- **Subdomain:** `siteA.localhost:3000/products` → rewrites to `/siteA/products`
-- **Default:** `localhost:3000/products` → rewrites to `/default/products`
-- **Unknown host:** `www.localhost:3000/products` → rewrites to `/default/products`
-
----
-
-### 4. `app/[[...path]]/page.tsx` - Main Page Handler
-
-This catch-all route handler renders Makeswift pages for the appropriate tenant.
-
-**What it does:**
-
-1. **Extracts the subdomain** from the first path segment (inserted by middleware)
-2. **Reconstructs the Makeswift path** by removing the subdomain from the URL
-3. **Creates a tenant-specific Makeswift client** using `getApiKey(subdomain)`
-4. **Fetches the page snapshot** for the requested path from the correct Makeswift site
-5. **Renders the Makeswift page** or returns a 404 if not found
-
-**Example Flow:**
-
-- Middleware rewrote URL to: `/siteA/products`
-- `pathSegments = ['siteA', 'products']`
-- `subdomain = 'siteA'`
-- `makeswiftPath = '/products'`
-- Fetches `/products` from Site A's Makeswift instance
-
----
-
-### 5. `app/api/makeswift/[...makeswift]/route.ts` - Makeswift API Handler
-
-This API route handler manages Makeswift's draft mode and preview functionality, allowing you to use the builder. These requests require the subdomain which is defined in the host setting.
-
-**What it does:**
-
-1. **Extracts the subdomain** from the request headers (e.g., `siteA` from `siteA.localhost:3000`, or `default` from `localhost:3000`)
-2. **Gets the tenant-specific API key** using `getApiKey(subdomain)`
-3. **Delegates to Makeswift's API handler** with the correct API key
-4. **Supports all HTTP methods** (GET, POST, OPTIONS) for Makeswift operations
-
----
-
-## 🔄 Request Flow
-
-Here's how requests flow through the multi-tenant system:
+1. **Detect the tenant** from the subdomain, resolved against the configured `ROOT_DOMAIN`.
+2. **Resolve to a Makeswift site** by mapping the subdomain to the appropriate Site API key.
+3. **Rewrite the URL** so the resolved tenant is the first path segment.
+4. **Serve tenant-specific content** from the correct Makeswift site.
 
 ```
 1. User visits: siteA.localhost:3000/products
    │
-   ├─> Middleware extracts "siteA" from host header
+   ├─> Middleware extracts "siteA" from the host header
    │
-   ├─> Validates "siteA" is a valid tenant
+   ├─> Resolves the tenant (falls back to "default" for the root
+   │   domain or any unknown host)
    │
    ├─> Rewrites URL to: /siteA/products
    │
-   └─> Routes to [[...path]]/page.tsx
+   └─> Routes to app/[[...path]]/page.tsx
 
-2. Page Component receives: params.path = ['siteA', 'products']
+2. Page component receives: params.path = ['siteA', 'products']
    │
-   ├─> Extracts tenantId = 'siteA'
+   ├─> Extracts tenantId = 'siteA' from the first path segment
    │
-   ├─> Calls getApiKey('siteA') → Gets Site A's API key
+   ├─> Calls getApiKey('siteA') → Site A's API key
    │
-   ├─> Creates Makeswift client with Site A's API key
+   ├─> Creates a Makeswift client with Site A's API key
    │
-   ├─> Fetches page snapshot for '/products' from Site A
+   ├─> Fetches the page snapshot for '/products' from Site A
    │
    └─> Renders the page with tenant-specific content
 ```
 
----
+## Key Files
 
-## 🚀 Adding a New Tenant
+### `env.ts` — Environment configuration
 
-To add a new tenant site:
+Defines and validates the environment variables for each tenant using [`@t3-oss/env-nextjs`](https://github.com/t3-oss/t3-env). Each tenant needs a subdomain identifier and a Makeswift Site API key. The validated `env` object is consumed throughout the app. See [env.ts](env.ts).
 
-1. **Add environment variables** in `.env.local` (or your hosting platform):
+### `lib/makeswift/tenants.ts` — Subdomain-to-API-key mapping
+
+The core of the multi-tenancy logic. It maps subdomains to Site API keys and exposes helpers for resolving a tenant from a host. See [lib/makeswift/tenants.ts](lib/makeswift/tenants.ts).
+
+- `SUBDOMAIN_TO_API_KEY` — the subdomain → API key map. `DEFAULT_TENANT_ID` (`'default'`) is used for the bare root domain and any unrecognized host.
+- `getApiKey(subdomain)` — returns the API key for a subdomain, and **throws** if it isn't a known tenant.
+- `getTenantFromHost(host)` — resolves a host header to a known tenant id, falling back to `default` and **never throwing**. This is why the API route can safely derive a tenant from an arbitrary host (the apex domain, `www`, a preview URL, etc.).
+- `getSubdomainFromHost(host)` / `isValidTenantId(subdomain)` — supporting helpers used by the middleware.
+
+### `middleware.ts` — Request interception & URL rewriting
+
+Rewrites incoming URLs so the resolved tenant is always the first path segment. See [middleware.ts](middleware.ts).
+
+1. **Extracts the subdomain** from the `host` header relative to `ROOT_DOMAIN` (e.g. `siteA.localhost:3000` → `siteA`; the bare `ROOT_DOMAIN` has no subdomain).
+2. **Resolves the tenant:** a valid subdomain is used as-is; the bare root domain and any unrecognized host (e.g. `www`, a platform preview URL) fall back to the `default` tenant — so the page route never throws.
+3. **Rewrites the URL** by prepending the resolved tenant to the pathname.
+4. **Skips Makeswift API routes and static files** via `config.matcher` (the API handler resolves the tenant from the host itself).
+
+**Examples** (with `ROOT_DOMAIN=localhost`):
+
+| Request                           | Rewritten to        |
+| --------------------------------- | ------------------- |
+| `siteA.localhost:3000/products`   | `/siteA/products`   |
+| `localhost:3000/products`         | `/default/products` |
+| `www.localhost:3000/products`     | `/default/products` |
+
+### `app/[[...path]]/page.tsx` — Main page handler
+
+This catch-all route renders Makeswift pages for the appropriate tenant. See [app/[[...path]]/page.tsx](app/[[...path]]/page.tsx).
+
+1. Reads the tenant id from the first path segment (inserted by middleware).
+2. Reconstructs the Makeswift path by removing that segment.
+3. Creates a tenant-specific Makeswift client via `getApiKey(subdomain)`.
+4. Fetches the page snapshot for the requested path from the correct site.
+5. Renders the page, or returns a 404 if no snapshot is found.
+
+### `app/api/makeswift/[...makeswift]/route.ts` — Makeswift API handler
+
+Handles Makeswift's draft mode and preview functionality so you can use the builder. These requests are excluded from the middleware, so the handler resolves the tenant from the host itself via `getTenantFromHost`. See [app/api/makeswift/[...makeswift]/route.ts](app/api/makeswift/[...makeswift]/route.ts).
+
+## Key Benefits
+
+- **Unified codebase, multiple sites** — a single deployment serves any number of tenant sites, with one set of components registered once and available to all tenants.
+- **Content isolation** — each tenant's pages and assets live in a separate Makeswift site, isolated at the API-key level, while sharing the same component library.
+- **Scales horizontally** — the same infrastructure handles any number of tenants from a single hosting environment.
+
+## Adding a New Tenant
+
+Adding a tenant is mostly configuration, plus a small wiring change in two files:
+
+1. **Add environment variables** in `.env.local` (and your hosting platform):
 
    ```bash
    SITE_C_SUBDOMAIN=siteC
    SITE_C_MAKESWIFT_SITE_API_KEY=your-new-api-key
    ```
 
-2. **Update `env.ts`** to include the new variables:
+2. **Register them in [env.ts](env.ts)** (both `server` and `runtimeEnv`):
 
    ```typescript
    server: {
@@ -182,7 +168,8 @@ To add a new tenant site:
    }
    ```
 
-3. **Update `lib/makeswift/tenants.ts`** to add the mapping:
+3. **Add the mapping in [lib/makeswift/tenants.ts](lib/makeswift/tenants.ts):**
+
    ```typescript
    const SUBDOMAIN_TO_API_KEY = {
      // ... existing entries
@@ -190,58 +177,36 @@ To add a new tenant site:
    }
    ```
 
----
+4. **Connect the new site's host URL** in the Makeswift dashboard (e.g. `http://siteC.localhost:3000`).
 
-## 🛠️ Development Setup
+## Production Deployment
 
-1. **Install dependencies:**
+The same logic works in production with two changes:
 
-   ```bash
-   pnpm install
-   ```
+- **Set `ROOT_DOMAIN` to your real domain** (e.g. `ROOT_DOMAIN=example.com`). Tenant subdomains are resolved relative to this value, and the bare apex domain maps to the default tenant.
+- **Point each tenant subdomain at your deployment.** Configure wildcard DNS (`*.example.com`) or an individual DNS record per tenant so `siteA.example.com`, `siteB.example.com`, etc. all reach the same app. Update each Makeswift site's host URL to its production subdomain.
 
-2. **Create `.env` file** with your tenant configuration:
+## Resolving Subdomains on Safari (Optional)
 
-   ```bash
-   ROOT_DOMAIN=localhost
-   DEFAULT_MAKESWIFT_SITE_API_KEY=your-default-site-key
-   SITE_A_SUBDOMAIN=siteA
-   SITE_A_MAKESWIFT_SITE_API_KEY=your-site-a-key
-   SITE_B_SUBDOMAIN=siteB
-   SITE_B_MAKESWIFT_SITE_API_KEY=your-site-b-key
-   ```
+Chrome, Firefox, and Edge resolve `*.localhost` to `127.0.0.1` automatically, but Safari does not. To make the tenant subdomains work in Safari, map them explicitly in `/etc/hosts`. This keeps `ROOT_DOMAIN=localhost`, so no other config changes:
 
-3. **Run the development server:**
-
-   ```bash
-   pnpm dev
-   ```
-
-4. **Test different tenants** by visiting each subdomain:
-
-   - Default tenant: `http://localhost:3000`
-   - Site A: `http://siteA.localhost:3000`
-   - Site B: `http://siteB.localhost:3000`
-
----
-
-## Modify your `/etc/hosts` Configuration (Optional)
-
-If you want to use custom local domains like `siteA.local`, you'll need to configure `/etc/hosts`:
-
-1. **Edit `/etc/hosts` with sudo** (e.g., using `vim` or your preferred editor)
+1. **Edit `/etc/hosts` with sudo:**
 
    ```bash
    sudo vim /etc/hosts
    ```
 
-2. **Add entries for each subdomain:**
+2. **Add an entry per subdomain:**
 
    ```
-   127.0.0.1    siteA.local
-   127.0.0.1    siteB.local
+   127.0.0.1    siteA.localhost
+   127.0.0.1    siteB.localhost
    ```
 
-3. **Visit your custom domains:**
-   - `http://siteA.local:3000`
-   - `http://siteB.local:3000`
+3. **Visit** `http://siteA.localhost:3000`, `http://siteB.localhost:3000`, etc.
+
+## Limitations
+
+- **Subdomain-based only.** Tenants are distinguished by subdomain, not by URL path. The first path segment is reserved internally for the resolved tenant. If you need to distinguish tenants by path instead, see the [path-based multi-tenant example](https://github.com/makeswift/multi-tenant-example-path).
+- **Adding a tenant requires a small code change** to [env.ts](env.ts) and [lib/makeswift/tenants.ts](lib/makeswift/tenants.ts), in addition to environment variables — see [Adding a New Tenant](#adding-a-new-tenant).
+- **Browser support for `*.localhost`** varies; Safari requires the [`/etc/hosts` approach](#resolving-subdomains-on-safari-optional).
